@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chladni Pattern Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #111827; /* bg-zinc-900 */
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+        .slider-label {
+            margin-bottom: 0.5rem;
+            color: #a3a3a3; /* text-zinc-400 */
+            font-size: 0.875rem;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #3f3f46; /* bg-zinc-700 */
+            outline: none;
+            opacity: 0.8;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5; /* bg-indigo-600 */
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+        }
+        .tab {
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .tab.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .tab.inactive {
+            background-color: #18181b; /* bg-zinc-900 */
+            color: #a3a3a3; /* text-zinc-400 */
+        }
+        .tab.inactive:hover {
+            background-color: #3f3f46; /* bg-zinc-700 */
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #09090b; /* bg-zinc-950 */
+            padding: 1rem;
+            overflow: hidden;
+        }
+        #gl-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 0.25rem;
+        }
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+    </style>
+</head>
+<body class="text-zinc-300">
+    <div class="flex h-screen">
+        <!-- Control Panel -->
+        <div class="w-full max-w-sm bg-zinc-800 p-6 shadow-2xl flex flex-col z-10 overflow-y-auto">
+            <h1 class="text-2xl font-bold mb-4 text-zinc-100">Chladni Patterns</h1>
+
+            <!-- Mode Tabs -->
+            <div class="flex w-full bg-zinc-900 rounded-lg p-1 mb-6 gap-1">
+                <button id="static-tab" class="tab active w-1/2 rounded-md py-2 text-sm font-medium">Static</button>
+                <button id="motion-tab" class="tab inactive w-1/2 rounded-md py-2 text-sm font-medium">Motion</button>
+            </div>
+
+            <!-- Static Controls -->
+            <div id="static-controls">
+                <div class="slider-container">
+                    <label for="n-slider" class="slider-label">n: <span id="n-value">2.0</span></label>
+                    <input id="n-slider" type="range" min="1" max="10" value="3.5" step="0.1">
+                </div>
+                <div class="slider-container">
+                    <label for="m-slider" class="slider-label">m: <span id="m-value">3.0</span></label>
+                    <input id="m-slider" type="range" min="1" max="10" value="4.5" step="0.1">
+                </div>
+                <div class="slider-container">
+                    <label for="a-slider" class="slider-label">a: <span id="a-value">1.0</span></label>
+                    <input id="a-slider" type="range" min="1" max="2" value="2" step="0.1">
+                </div>
+                <div class="slider-container">
+                    <label for="b-slider" class="slider-label">b: <span id="b-value">1.0</span></label>
+                    <input id="b-slider" type="range" min="1" max="2" value="1" step="0.1">
+                </div>
+                <div class="mt-6">
+                    <button id="randomize-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition-colors duration-300">
+                        Randomize
+                    </button>
+                    <p class="text-xs mt-2"></p>
+                </div>
+            </div>
+
+            <!-- Motion Controls -->
+            <div id="motion-controls" class="hidden">
+                 <div class="slider-container">
+                    <label for="seed-input" class="slider-label">Random Seed</label>
+                    <input id="seed-input" type="text" value="Resonance" class="w-full p-2 border border-zinc-600 rounded-md bg-zinc-700 text-zinc-200 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="slider-container">
+                    <label for="steps-slider" class="slider-label">Animation Steps: <span id="steps-value">4</span></label>
+                    <input id="steps-slider" type="range" min="2" max="10" value="4" step="1">
+                </div>
+                 <div class="slider-container">
+                    <label for="speed-slider" class="slider-label">Animation Speed: <span id="speed-value">2.0</span></label>
+                    <input id="speed-slider" type="range" min="0.5" max="5" value="2" step="0.1">
+                </div>
+                <div class="mt-6">
+                    <button id="export-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition-colors duration-300">
+                        Export Video
+                    </button>
+                    <p id="export-status" class="text-xs text-center mt-2 text-zinc-500"></p>
+                </div>
+            </div>
+            
+            <!-- Resolution Controls -->
+            <div class="mt-6 pt-6 border-t border-zinc-700">
+                <h2 class="text-lg font-semibold mb-3 text-zinc-200">Output Settings</h2>
+                <div class="flex items-center space-x-2 mb-3">
+                    <input id="res-width-input" type="number" value="2160" class="w-1/2 p-2 border border-zinc-600 rounded-md text-center bg-zinc-700 text-zinc-200">
+                    <span class="text-zinc-500">×</span>
+                    <input id="res-height-input" type="number" value="2160" class="w-1/2 p-2 border border-zinc-600 rounded-md text-center bg-zinc-700 text-zinc-200">
+                </div>
+                <button id="apply-res-btn" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white py-2 px-4 mt-4 rounded-lg transition-colors duration-300">
+                    Apply Size
+                </button>
+            </div>
+
+            <!-- Shared Color Controls -->
+            <div class="mt-6 pt-6 border-t border-zinc-700">
+                 <h2 class="text-lg font-semibold mb-3 text-zinc-200">Colors</h2>
+                 <div class="space-y-4">
+                    <div>
+                        <label for="bg-color-select" class="text-sm text-zinc-400 mb-1 block">Background</label>
+                        <div class="flex gap-4 items-center">
+                            <select id="bg-color-select" class="w-full p-2 border border-zinc-600 rounded-md bg-zinc-700 text-zinc-200 focus:ring-indigo-500 focus:border-indigo-500"></select>
+                            <div id="bg-color-indicator" class="h-6 aspect-square rounded-md border border-zinc-700"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="fg-color-select" class="text-sm text-zinc-400 mb-1 block">Foreground</label>
+                        <div class="flex gap-4 items-center">
+                            <select id="fg-color-select" class="w-full p-2 border border-zinc-600 rounded-md bg-zinc-700 text-zinc-200 focus:ring-indigo-500 focus:border-indigo-500"></select>
+                            <div id="fg-color-indicator" class="h-6 aspect-square rounded-md border border-zinc-600"></div>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="flex-1 canvas-container">
+            <canvas id="gl-canvas"></canvas>
+        </div>
+    </div>
+
+    <!-- Vertex Shader -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
+        void main() {
+            gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+    </script>
+
+    <!-- Fragment Shader -->
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform vec2 u_resolution;
+        uniform float u_n;
+        uniform float u_m;
+        uniform float u_a;
+        uniform float u_b;
+        uniform vec4 u_bgColor;
+        uniform vec4 u_fgColor;
+
+        float map(float value, float min1, float max1, float min2, float max2) {
+            return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+        }
+
+        float rand(vec2 co){
+            return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+        
+
+        void main() {
+            vec2 pos = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+            
+
+            float mask = 1.0 - distance(pos, vec2(0.0));
+            mask = clamp(mask, 0.0, 1.0);
+            mask = smoothstep(.02, 1.0, mask);
+
+
+            float amp = map(mask, 0.1, 0.5, .005, .002);
+
+            float rot = rand(pos) * 3.14159;
+            vec2 dir = vec2(sin(rot), cos(rot));
+
+            pos += dir * amp;
+
+            float x = pos.x;
+            float y = pos.y;
+
+            float value = u_a * sin(3.14159 * u_n * x) * sin(3.14159 * u_m * y) +
+                          u_b * sin(3.14159 * u_m * x) * sin(3.14159 * u_n * y);
+
+            float pattern = smoothstep(0.2, 0.15, abs(value));
+
+            
+
+            
+            vec4 color = mix(u_bgColor, u_fgColor, pattern * mask);
+            //color = vec4(vec3(mask), 1.0);
+            //color = vec4(vec3(noise), 1.0);
+            
+            gl_FragColor = color;
+        }
+    </script>
+
+    <script>
+        function main() {
+            // --- Color Palette ---
+            const colorPalette = {
+                'Midnight': '#032626', 'Teal': '#004750', 'Light Green': '#87FFC5',
+                'Powder': '#E1EEEF', 'Off-White': '#FAFAFA', 'Auburn': '#510E08',
+                'Red': '#F94357', 'Pink': '#FFCCDB', 'Orange': '#FF9904',
+                'Lemon': '#FFFFCC', 'Royal': '#240E79', 'Purple': '#5A1AB2',
+                'Lavender': '#DED1EF'
+            };
+
+            // --- WebGL Setup ---
+            const canvas = document.getElementById('gl-canvas');
+            const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+            if (!gl) {
+                console.error("WebGL not supported!");
+                return;
+            }
+
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, document.getElementById('vertex-shader').text);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, document.getElementById('fragment-shader').text);
+            const program = createProgram(gl, vertexShader, fragmentShader);
+
+            const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+            const resolutionUniformLocation = gl.getUniformLocation(program, 'u_resolution');
+            const nUniformLocation = gl.getUniformLocation(program, 'u_n');
+            const mUniformLocation = gl.getUniformLocation(program, 'u_m');
+            const aUniformLocation = gl.getUniformLocation(program, 'u_a');
+            const bUniformLocation = gl.getUniformLocation(program, 'u_b');
+            const bgColorUniformLocation = gl.getUniformLocation(program, 'u_bgColor');
+            const fgColorUniformLocation = gl.getUniformLocation(program, 'u_fgColor');
+
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+
+            // --- UI Elements ---
+            const ui = {
+                tabs: { static: document.getElementById('static-tab'), motion: document.getElementById('motion-tab') },
+                controls: { static: document.getElementById('static-controls'), motion: document.getElementById('motion-controls') },
+                staticSliders: { n: document.getElementById('n-slider'), m: document.getElementById('m-slider'), a: document.getElementById('a-slider'), b: document.getElementById('b-slider') },
+                staticValues: { n: document.getElementById('n-value'), m: document.getElementById('m-value'), a: document.getElementById('a-value'), b: document.getElementById('b-value') },
+                motion: {
+                    seed: document.getElementById('seed-input'),
+                    steps: document.getElementById('steps-slider'),
+                    stepsValue: document.getElementById('steps-value'),
+                    speed: document.getElementById('speed-slider'),
+                    speedValue: document.getElementById('speed-value'),
+                    exportBtn: document.getElementById('export-btn'),
+                    exportStatus: document.getElementById('export-status'),
+                },
+                resolution: {
+                    width: document.getElementById('res-width-input'),
+                    height: document.getElementById('res-height-input'),
+                    applyBtn: document.getElementById('apply-res-btn'),
+                },
+                colors: {
+                    bg: document.getElementById('bg-color-select'),
+                    fg: document.getElementById('fg-color-select'),
+                },
+                indicators: {
+                    bg: document.getElementById('bg-color-indicator'),
+                    fg: document.getElementById('fg-color-indicator'),
+                },
+                randomizeBtn: document.getElementById('randomize-btn'),
+            };
+
+            // --- State Management ---
+            let appState = {
+                mode: 'static',
+                animationFrameId: null,
+                motion: { sequence: [], currentIndex: 0, startTime: 0 }
+            };
+
+            // --- Helper Functions ---
+            const hexToRgb = (hex) => {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? [parseInt(result[1], 16) / 255, parseInt(result[2], 16) / 255, parseInt(result[3], 16) / 255, 1.0] : [0, 0, 0, 1];
+            };
+            const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            const lerp = (a, b, t) => a + (b - a) * t;
+            function createSeededRandom(seedStr) {
+                let h = 1779033703 ^ seedStr.length;
+                for(let i = 0; i < seedStr.length; i++) {
+                    h = Math.imul(h ^ seedStr.charCodeAt(i), 3432918353);
+                    h = h << 13 | h >>> 19;
+                }
+                return function() {
+                    h = Math.imul(h ^ h >>> 16, 2246822507);
+                    h = Math.imul(h ^ h >>> 13, 3266489909);
+                    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+                }
+            }
+
+            // --- Rendering & Canvas Management ---
+            function render(params) {
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                gl.useProgram(program);
+                gl.enableVertexAttribArray(positionAttributeLocation);
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+                gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+                gl.uniform4fv(bgColorUniformLocation, hexToRgb(ui.colors.bg.value));
+                gl.uniform4fv(fgColorUniformLocation, hexToRgb(ui.colors.fg.value));
+                gl.uniform1f(nUniformLocation, params.n);
+                gl.uniform1f(mUniformLocation, params.m);
+                gl.uniform1f(aUniformLocation, params.a);
+                gl.uniform1f(bUniformLocation, params.b);
+
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+            
+            function applyResolution() {
+                const width = parseInt(ui.resolution.width.value, 10) || 1080;
+                const height = parseInt(ui.resolution.height.value, 10) || 1080;
+                canvas.width = width;
+                canvas.height = height;
+                canvas.style.aspectRatio = `${width} / ${height}`;
+                if (appState.mode === 'static') {
+                    drawCurrentStatic();
+                }
+            }
+            
+            function drawCurrentStatic() {
+                const params = {
+                    n: parseFloat(ui.staticSliders.n.value),
+                    m: parseFloat(ui.staticSliders.m.value),
+                    a: parseFloat(ui.staticSliders.a.value),
+                    b: parseFloat(ui.staticSliders.b.value),
+                };
+                for (const key in ui.staticValues) {
+                    ui.staticValues[key].textContent = parseFloat(ui.staticSliders[key].value).toFixed(1);
+                }
+                render(params);
+            }
+
+            // --- Animation Logic ---
+            function animateTo(from, to, duration, onComplete) {
+                let startTime = 0;
+                function step(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    const elapsed = timestamp - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easedProgress = ease(progress);
+                    const currentParams = {};
+                    for (const key in from) {
+                        currentParams[key] = lerp(from[key], to[key], easedProgress);
+                    }
+                    render(currentParams);
+                    for (const key in ui.staticSliders) {
+                       ui.staticSliders[key].value = currentParams[key];
+                       ui.staticValues[key].textContent = currentParams[key].toFixed(1);
+                    }
+                    if (progress < 1) {
+                        appState.animationFrameId = requestAnimationFrame(step);
+                    } else {
+                        if (onComplete) onComplete();
+                    }
+                }
+                appState.animationFrameId = requestAnimationFrame(step);
+            }
+            
+            function startRandomStaticAnimation() {
+                if (appState.animationFrameId) cancelAnimationFrame(appState.animationFrameId);
+                const from = {}, to = {};
+                for (const key in ui.staticSliders) {
+                    from[key] = parseFloat(ui.staticSliders[key].value);
+                    const min = parseFloat(ui.staticSliders[key].min);
+                    const max = parseFloat(ui.staticSliders[key].max);
+                    to[key] = Math.random() * (max - min) + min;
+                }
+                animateTo(from, to, 800, () => {});
+            }
+            
+            // --- Motion Mode Logic ---
+            function generateMotionSequence() {
+                const random = createSeededRandom(ui.motion.seed.value);
+
+                const nmin = parseFloat(ui.staticSliders.n.min)
+                const nmax = parseFloat(ui.staticSliders.n.max)
+
+                const mmin = parseFloat(ui.staticSliders.m.min)
+                const mmax = parseFloat(ui.staticSliders.m.max)
+
+                const amin = parseFloat(ui.staticSliders.a.min)
+                const amax = parseFloat(ui.staticSliders.a.max)
+
+                const bmin = parseFloat(ui.staticSliders.b.min)
+                const bmax = parseFloat(ui.staticSliders.b.max)
+
+                const mappedRandom = (min, max) => random() * (max - min) + min;
+
+                appState.motion.sequence = [];
+                for (let i = 0; i < parseInt(ui.motion.steps.value); i++) {
+                    appState.motion.sequence.push({
+                        n: mappedRandom(nmin, nmax), m: mappedRandom(mmin, mmax),
+                        a: mappedRandom(amin, amax), b: mappedRandom(bmin, bmax),
+                    });
+                }
+            }
+
+            function runMotionLoop(timestamp) {
+                if (appState.mode !== 'motion') return;
+                const duration = parseFloat(ui.motion.speed.value) * 1000;
+                if (!appState.motion.startTime) appState.motion.startTime = timestamp;
+
+                const elapsed = timestamp - appState.motion.startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easedProgress = ease(progress);
+
+                const from = appState.motion.sequence[appState.motion.currentIndex];
+                const to = appState.motion.sequence[(appState.motion.currentIndex + 1) % appState.motion.sequence.length];
+                const currentParams = {};
+                for (const key in from) {
+                    currentParams[key] = lerp(from[key], to[key], easedProgress);
+                }
+                render(currentParams);
+
+                if (progress >= 1) {
+                    appState.motion.currentIndex = (appState.motion.currentIndex + 1) % appState.motion.sequence.length;
+                    appState.motion.startTime = timestamp;
+                }
+                appState.animationFrameId = requestAnimationFrame(runMotionLoop);
+            }
+
+            function startMotion() {
+                stopAnimation();
+                generateMotionSequence();
+                appState.motion.currentIndex = 0;
+                appState.motion.startTime = 0;
+                appState.animationFrameId = requestAnimationFrame(runMotionLoop);
+            }
+
+            function stopAnimation() {
+                 if (appState.animationFrameId) {
+                    cancelAnimationFrame(appState.animationFrameId);
+                    appState.animationFrameId = null;
+                 }
+            }
+            
+            // --- Event Listeners & Mode Switching ---
+            function setupEventListeners() {
+                ui.tabs.static.addEventListener('click', () => switchMode('static'));
+                ui.tabs.motion.addEventListener('click', () => switchMode('motion'));
+                Object.values(ui.staticSliders).forEach(slider => slider.addEventListener('input', drawCurrentStatic));
+                ui.randomizeBtn.addEventListener('click', startRandomStaticAnimation);
+                ui.motion.seed.addEventListener('input', startMotion);
+                ui.motion.steps.addEventListener('input', () => {
+                    ui.motion.stepsValue.textContent = ui.motion.steps.value;
+                    startMotion();
+                });
+                ui.motion.speed.addEventListener('input', () => {
+                    ui.motion.speedValue.textContent = parseFloat(ui.motion.speed.value).toFixed(1) + 's';
+                });
+                ui.motion.exportBtn.addEventListener('click', exportVideo);
+                ui.resolution.applyBtn.addEventListener('click', applyResolution);
+                ui.colors.bg.addEventListener('change', () => { if (appState.mode === 'static') drawCurrentStatic(); updateIndicators();});
+                ui.colors.fg.addEventListener('change', () => { if (appState.mode === 'static') drawCurrentStatic();  updateIndicators();});
+            }
+            
+            function switchMode(newMode) {
+                if (appState.mode === newMode) return;
+                appState.mode = newMode;
+                stopAnimation();
+                ui.tabs.static.className = `tab ${newMode === 'static' ? 'active' : 'inactive'} w-1/2 rounded-md py-2 text-sm font-medium`;
+                ui.tabs.motion.className = `tab ${newMode === 'motion' ? 'active' : 'inactive'} w-1/2 rounded-md py-2 text-sm font-medium`;
+                ui.controls.static.classList.toggle('hidden', newMode !== 'static');
+                ui.controls.motion.classList.toggle('hidden', newMode !== 'motion');
+                if (newMode === 'static') {
+                    drawCurrentStatic();
+                } else {
+                    startMotion();
+                }
+            }
+            
+            // --- Video Export ---
+            async function exportVideo() {
+                const exportBtn = ui.motion.exportBtn, statusEl = ui.motion.exportStatus;
+                exportBtn.disabled = true;
+                exportBtn.textContent = 'Recording...';
+                statusEl.textContent = 'Please wait, this may take a moment.';
+
+                const stream = canvas.captureStream(60);
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 8000000 });
+                const chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `chladni-loop-${ui.motion.seed.value}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    exportBtn.disabled = false;
+                    exportBtn.textContent = 'Export Video';
+                    statusEl.textContent = 'Export complete!';
+                    setTimeout(() => statusEl.textContent = '', 3000);
+                };
+                recorder.start();
+                const totalDuration = appState.motion.sequence.length * parseFloat(ui.motion.speed.value) * 1000;
+                setTimeout(() => recorder.stop(), totalDuration);
+            }
+
+            // --- Initial Setup ---
+            function populateColorDropdowns() {
+                for (const [name, hex] of Object.entries(colorPalette)) {
+                    const optionBg = new Option(name, hex);
+                    const optionFg = new Option(name, hex);
+                    ui.colors.bg.add(optionBg);
+                    ui.colors.fg.add(optionFg);
+                }
+                // Set defaults
+                ui.colors.bg.value = colorPalette['Midnight'];
+                ui.colors.fg.value = colorPalette['Light Green'];
+            }
+
+            function updateIndicators() {
+                ui.indicators.bg.style = `background-color: ${ui.colors.bg.value}`
+                ui.indicators.fg.style = `background-color: ${ui.colors.fg.value}`
+            }
+
+            populateColorDropdowns();
+            updateIndicators();
+            setupEventListeners();
+            ui.motion.stepsValue.textContent = ui.motion.steps.value;
+            ui.motion.speedValue.textContent = parseFloat(ui.motion.speed.value).toFixed(1) + 's';
+            applyResolution();
+        }
+
+        // --- WebGL Helper Functions ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+            console.error(gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+        }
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program;
+            console.error(gl.getProgramInfoLog(program));
+            gl.deleteProgram(program);
+        }
+
+        main();
+    </script>
+</body>
+</html>
