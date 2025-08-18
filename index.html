@@ -263,7 +263,7 @@
             float x = pos.x;
             float y = pos.y;
             
-            mask -= noise * .8;
+            mask -= noise * .7;
             mask = clamp(mask, 0.0, 1.0);
 
             float value = u_a * sin(3.14159 * u_n * x) * sin(3.14159 * u_m * y) +
