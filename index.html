@@ -166,6 +166,19 @@
                 </button>
             </div>
 
+            <!-- Effect Controls -->
+            <div class="mt-6 pt-6 border-t border-zinc-700">
+                 <h2 class="text-lg font-semibold mb-3 text-zinc-200">Effects</h2>
+                 <div>
+                    <label for="vignette-select" class="text-sm text-gray-400 mb-1 block">Style</label>
+                    <select id="vignette-select" class="w-full p-2 border border-zinc-600 rounded-md bg-zinc-700 text-zinc-200 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="0">Full Bleed</option>
+                        <option value="1">Vignette</option>
+                        <option value="2">Frame</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Shared Color Controls -->
             <div class="mt-6 pt-6 border-t border-zinc-700">
                  <h2 class="text-lg font-semibold mb-3 text-zinc-200">Colors</h2>
@@ -212,6 +225,7 @@
         uniform float u_b;
         uniform vec4 u_bgColor;
         uniform vec4 u_fgColor;
+        uniform int u_vignetteMode;
 
         float map(float value, float min1, float max1, float min2, float max2) {
             return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
@@ -225,33 +239,42 @@
         void main() {
             vec2 pos = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
             
+            
+            float mask = 1.0;
 
-            float mask = 1.0 - distance(pos, vec2(0.0));
-            mask = clamp(mask, 0.0, 1.0);
-            mask = smoothstep(.02, 1.0, mask);
-
-
-            float amp = map(mask, 0.1, 0.5, .005, .002);
-
-            float rot = rand(pos) * 3.14159;
+            if (u_vignetteMode == 1) {
+                mask = 1.0 - distance(pos, vec2(0.0));
+                mask = smoothstep(.02, .6, mask);
+            }
+            else if (u_vignetteMode == 2) {
+                mask = distance(pos, vec2(0.0));
+                mask = smoothstep(.6, 1.6, mask);
+            }
+            
+            
+            float amp = map(mask, 0.1, 0.5, .006, .002);
+            
+            float noise = rand(pos);
+            float rot = noise * 3.14159;
             vec2 dir = vec2(sin(rot), cos(rot));
-
+            
             pos += dir * amp;
-
+            
             float x = pos.x;
             float y = pos.y;
+            
+            mask -= noise * .8;
+            mask = clamp(mask, 0.0, 1.0);
 
             float value = u_a * sin(3.14159 * u_n * x) * sin(3.14159 * u_m * y) +
                           u_b * sin(3.14159 * u_m * x) * sin(3.14159 * u_n * y);
 
-            float pattern = smoothstep(0.2, 0.15, abs(value));
-
-            
+            float pattern = smoothstep(0.2, 0.1, abs(value));
 
             
             vec4 color = mix(u_bgColor, u_fgColor, pattern * mask);
             //color = vec4(vec3(mask), 1.0);
-            //color = vec4(vec3(noise), 1.0);
+            //color = vec4(vec3(rot / 3.141592), 1.0);
             
             gl_FragColor = color;
         }
@@ -288,6 +311,7 @@
             const bUniformLocation = gl.getUniformLocation(program, 'u_b');
             const bgColorUniformLocation = gl.getUniformLocation(program, 'u_bgColor');
             const fgColorUniformLocation = gl.getUniformLocation(program, 'u_fgColor');
+            const vignetteModeUniformLocation = gl.getUniformLocation(program, 'u_vignetteMode');
 
             const positionBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -312,6 +336,9 @@
                     width: document.getElementById('res-width-input'),
                     height: document.getElementById('res-height-input'),
                     applyBtn: document.getElementById('apply-res-btn'),
+                },
+                effects: {
+                    vignette: document.getElementById('vignette-select'),
                 },
                 colors: {
                     bg: document.getElementById('bg-color-select'),
@@ -365,6 +392,7 @@
                 gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
                 gl.uniform4fv(bgColorUniformLocation, hexToRgb(ui.colors.bg.value));
                 gl.uniform4fv(fgColorUniformLocation, hexToRgb(ui.colors.fg.value));
+                gl.uniform1i(vignetteModeUniformLocation, parseInt(ui.effects.vignette.value));
                 gl.uniform1f(nUniformLocation, params.n);
                 gl.uniform1f(mUniformLocation, params.m);
                 gl.uniform1f(aUniformLocation, params.a);
@@ -517,8 +545,12 @@
                 });
                 ui.motion.exportBtn.addEventListener('click', exportVideo);
                 ui.resolution.applyBtn.addEventListener('click', applyResolution);
-                ui.colors.bg.addEventListener('change', () => { if (appState.mode === 'static') drawCurrentStatic(); updateIndicators();});
-                ui.colors.fg.addEventListener('change', () => { if (appState.mode === 'static') drawCurrentStatic();  updateIndicators();});
+
+                const redrawOnChange = () => { if (appState.mode === 'static') drawCurrentStatic(); updateIndicators();};
+
+                ui.colors.bg.addEventListener('change', redrawOnChange);
+                ui.colors.fg.addEventListener('change', redrawOnChange);
+                ui.effects.vignette.addEventListener('change', redrawOnChange);
             }
             
             function switchMode(newMode) {
