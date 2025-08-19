@@ -142,7 +142,7 @@
                     <input id="steps-slider" type="range" min="2" max="10" value="4" step="1">
                 </div>
                  <div class="slider-container">
-                    <label for="speed-slider" class="slider-label">Animation Speed: <span id="speed-value">2.0</span></label>
+                    <label for="speed-slider" class="slider-label">Animation Speed: <span id="speed-value">3.0</span></label>
                     <input id="speed-slider" type="range" min="0.5" max="5" value="2" step="0.1">
                 </div>
                 <div class="mt-6">
@@ -176,6 +176,14 @@
                         <option value="1">Vignette</option>
                         <option value="2">Frame</option>
                     </select>
+                </div>
+                <div class="slider-container mt-6">
+                    <label for="vignette-start" class="slider-label">Vignette Start: <span id="v-start-value">0.6</span></label>
+                    <input id="vignette-start" type="range" min="0" max="1" value="0.6" step=".01">
+                </div>
+                <div class="slider-container mt-6">
+                    <label for="vignette-end" class="slider-label">Vignette End: <span id="v-end-value">1.0</span></label>
+                    <input id="vignette-end" type="range" min="0" max="1.5" value="1" step=".01">
                 </div>
             </div>
 
@@ -226,6 +234,8 @@
         uniform vec4 u_bgColor;
         uniform vec4 u_fgColor;
         uniform int u_vignetteMode;
+        uniform float u_vignetteStart;
+        uniform float u_vignetteEnd;
 
         float map(float value, float min1, float max1, float min2, float max2) {
             return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
@@ -240,15 +250,21 @@
             vec2 pos = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
             
             
+            //float vignetteStart = 0.6;
+            //float vignetteEnd = 1.0;
+
+            float vignetteStart = u_vignetteStart;
+            float vignetteEnd = u_vignetteEnd;
+
             float mask = 1.0;
 
             if (u_vignetteMode == 1) {
                 mask = 1.0 - distance(pos, vec2(0.0));
-                mask = smoothstep(.02, .6, mask);
+                mask = smoothstep(1.0 - vignetteEnd, vignetteStart, mask);
             }
             else if (u_vignetteMode == 2) {
                 mask = distance(pos, vec2(0.0));
-                mask = smoothstep(.6, 1.6, mask);
+                mask = smoothstep(vignetteStart, vignetteEnd, mask);
             }
             
             
@@ -312,6 +328,8 @@
             const bgColorUniformLocation = gl.getUniformLocation(program, 'u_bgColor');
             const fgColorUniformLocation = gl.getUniformLocation(program, 'u_fgColor');
             const vignetteModeUniformLocation = gl.getUniformLocation(program, 'u_vignetteMode');
+            const vignetteStartUniformLocation = gl.getUniformLocation(program, 'u_vignetteStart');
+            const vignetteEndUniformLocation = gl.getUniformLocation(program, 'u_vignetteEnd');
 
             const positionBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -339,6 +357,10 @@
                 },
                 effects: {
                     vignette: document.getElementById('vignette-select'),
+                    vignetteStart: document.getElementById('vignette-start'),
+                    vignetteStartValue: document.getElementById('v-start-value'),
+                    vignetteEnd: document.getElementById('vignette-end'),
+                    vignetteEndValue: document.getElementById('v-end-value')
                 },
                 colors: {
                     bg: document.getElementById('bg-color-select'),
@@ -392,7 +414,11 @@
                 gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
                 gl.uniform4fv(bgColorUniformLocation, hexToRgb(ui.colors.bg.value));
                 gl.uniform4fv(fgColorUniformLocation, hexToRgb(ui.colors.fg.value));
+
                 gl.uniform1i(vignetteModeUniformLocation, parseInt(ui.effects.vignette.value));
+                gl.uniform1f(vignetteStartUniformLocation, parseFloat(ui.effects.vignetteStart.value));
+                gl.uniform1f(vignetteEndUniformLocation, parseFloat(ui.effects.vignetteEnd.value));
+
                 gl.uniform1f(nUniformLocation, params.n);
                 gl.uniform1f(mUniformLocation, params.m);
                 gl.uniform1f(aUniformLocation, params.a);
@@ -550,7 +576,10 @@
 
                 ui.colors.bg.addEventListener('change', redrawOnChange);
                 ui.colors.fg.addEventListener('change', redrawOnChange);
+
                 ui.effects.vignette.addEventListener('change', redrawOnChange);
+                ui.effects.vignetteStart.addEventListener('input', () => {redrawOnChange(); ui.effects.vignetteStartValue.textContent = ui.effects.vignetteStart.value});
+                ui.effects.vignetteEnd.addEventListener('input', () => {redrawOnChange(); ui.effects.vignetteEndValue.textContent = ui.effects.vignetteEnd.value});
             }
             
             function switchMode(newMode) {
