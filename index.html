@@ -641,12 +641,21 @@
                 ui.colors.fg.value = colorPalette['Light Green'];
             }
 
+            function setEffectDefaults() {
+                ui.effects.vignetteStart.value = 0.6;
+                ui.effects.vignetteEnd.value = 1.0;
+
+                ui.effects.vignetteStartValue.textContent = ui.effects.vignetteStart.value;
+                ui.effects.vignetteEndValue.textContent = ui.effects.vignetteEnd.value;
+            }
+
             function updateIndicators() {
                 ui.indicators.bg.style = `background-color: ${ui.colors.bg.value}`
                 ui.indicators.fg.style = `background-color: ${ui.colors.fg.value}`
             }
 
             populateColorDropdowns();
+            setEffectDefaults();
             updateIndicators();
             setupEventListeners();
             ui.motion.stepsValue.textContent = ui.motion.steps.value;
